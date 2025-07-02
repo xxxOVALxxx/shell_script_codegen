@@ -1,0 +1,17 @@
+targets:
+  $default:
+    builders:
+      shell_script_codegen|shell_script_builder:
+        enabled: true
+        generate_for:
+          - lib/**
+
+        
+builders:
+  shell_script_builder:
+    import: "package:shell_script_codegen/shell_script_builder.dart"
+    builder_factories: ["shellScriptBuilder"]
+    build_extensions: {".dart": [".shell_scripts.g.part"]}
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen:combining_builder"]

@@ -1,0 +1,14 @@
+name: shell_script_codegen_example
+description: Example for shell_script_codegen
+publish_to: none
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+
+dependencies:
+  shell_script_codegen:
+    path: ../../
+
+dev_dependencies:
+  build_runner: ^2.5.4
+
