@@ -32,6 +32,11 @@ class ShellScripts {
   /// Prefix for methods accessing scripts
   final String methodPrefix;
 
+  /// Creates a [ShellScripts] annotation.
+  ///
+  /// [scriptsPath] specifies the path to the shell scripts directory.
+  /// [enableParameters] determines whether method parameters are enabled. Defaults to `true`.
+  /// [methodPrefix] sets the prefix for generated method names. Defaults to `'get'`.
   const ShellScripts({
     required this.scriptsPath,
     this.enableParameters = true,
@@ -52,6 +57,10 @@ class ShellScript {
   /// List of supported parameters
   final List<ShellParameter> parameters;
 
+  /// Creates a [ShellScript] annotation.
+  ///
+  /// [fileName] is the name of the shell script file to be generated.
+  /// [parameters] is an optional list of parameters to be passed to the script.
   const ShellScript({
     required this.fileName,
     this.parameters = const [],
@@ -75,6 +84,13 @@ class ShellParameter {
   /// Parameter type (flag, value)
   final ParameterType type;
 
+  /// Creates a [ShellParameter] with the specified properties.
+  ///
+  /// [flag] is the command-line flag associated with this parameter (e.g., `-f` or `--file`).
+  /// [name] is the name of the parameter.
+  /// [required] indicates whether this parameter is mandatory. Defaults to `false`.
+  /// [defaultValue] specifies the default value for the parameter if not provided.
+  /// [type] defines the type of the parameter, defaulting to [ParameterType.value].
   const ShellParameter({
     required this.flag,
     required this.name,
@@ -84,6 +100,10 @@ class ShellParameter {
   });
 }
 
+/// Represents the type of a command-line parameter.
+///
+/// [ParameterType.flag] is used for flags that do not require a value (e.g., `-v` for verbose).
+/// [ParameterType.value] is used for parameters that require an associated value (e.g., `-f filename`).
 enum ParameterType {
   /// Flag without value (e.g., -v for verbose)
   flag,

@@ -1,5 +1,10 @@
 import 'annotations.dart';
 
+/// A utility class for parameterizing shell scripts by injecting or replacing
+/// variables and values within the script content.
+///
+/// Use this class to safely and programmatically modify shell scripts,
+/// enabling dynamic script generation and execution.
 class ShellScriptParameterizer {
   /// Generates Dart code for creating a script with parameters
   static String generateDartParameterMethod(
