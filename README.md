@@ -56,7 +56,7 @@ cp -r "$SOURCE" "$DEST"
 // lib/my_scripts.dart
 import 'package:shell_script_codegen/shell_script_codegen.dart';
 
-part 'my_scripts.shell_scripts.g.part';
+part 'my_scripts.g.part';
 
 @ShellScripts(
   scriptsPath: 'scripts',

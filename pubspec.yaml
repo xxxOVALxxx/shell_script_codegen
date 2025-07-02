@@ -13,7 +13,6 @@ dependencies:
   build_config: ^1.1.2
   source_gen: ^2.0.0
   analyzer: ^7.5.4
-  meta: ^1.17.0
   path: ^1.9.1
 
 dev_dependencies:
