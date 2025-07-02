@@ -1,6 +1,9 @@
 name: shell_script_codegen
-description: A code generation package for minifying and parameterizing shell scripts
+description: A code generation package for parameterizing shell scripts
 version: 1.0.0
+homepage: https://github.com/xxxOVALxxx/shell_script_codegen
+repository: https://github.com/xxxOVALxxx/shell_script_codegen
+issue_tracker: https://github.com/xxxOVALxxx/shell_script_codegen/issues
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -15,3 +18,9 @@ dependencies:
 
 dev_dependencies:
   build_runner: ^2.5.4
+
+topics:
+  - code-generation
+  - shell-scripts
+  - build-runner
+  - source-gen
