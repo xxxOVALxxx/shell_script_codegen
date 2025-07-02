@@ -30,3 +30,22 @@ class MyShell {
   )
   void backupScript() {}
 }
+
+// Example usage of MyShell (assuming code generation is complete)
+void main() async {
+  // Get the singleton instance (or create as appropriate for your generator)
+  final shell = MyShellScripts.instance;
+
+  // Generate a backup script with all parameters
+  final script = shell.getBackupScript(
+    source: 'data.txt',
+    destination: '/backups/data.bak',
+    verbose: true,
+  );
+
+  print('Generated backup script:');
+  print(script);
+
+  // Execute the generated script
+  await shell.executeScript(script);
+}
