@@ -56,7 +56,7 @@ cp -r "$SOURCE" "$DEST"
 // lib/my_scripts.dart
 import 'package:shell_script_codegen/shell_script_codegen.dart';
 
-part 'my_scripts.g.part';
+part 'my_scripts.g.dart';
 
 @ShellScripts(
   scriptsPath: 'scripts',
@@ -83,6 +83,7 @@ class MyShell {
         type: ParameterType.flag,
       ),
     ],
+    allowRawParameters: true,  // Enable raw parameter support
   )
   void backupScript() {}
 }
@@ -102,14 +103,26 @@ import 'my_scripts.dart';
 void main() {
   final scripts = MyShellScripts.instance;
   
-  // Get script with parameters
-  final backupScript = scripts.getBackupScript(
+  // Get script with typed parameters
+  final backupScript1 = scripts.getBackupScript(
     source: '/home/user/data',
     destination: '/backup/data',
     verbose: true,
   );
   
-  print(backupScript);
+  // Get script with raw parameters
+  final backupScript2 = scripts.getBackupScript(
+    rawParameters: '-s /home/user/docs -d /backup/docs -v',
+  );
+  
+  // Mix typed and raw parameters
+  final backupScript3 = scripts.getBackupScript(
+    source: '/home/user/data',
+    destination: '/backup/data',
+    rawParameters: '-v --extra-option value',
+  );
+  
+  print(backupScript1);
   // Output: script with automatically added set -- line with parameters
 }
 ```
@@ -149,9 +162,15 @@ Annotation for methods, linking to a specific shell script:
       required: true,
     ),
   ],
+  allowRawParameters: true,  // Enable raw parameter string support
 )
 void myMethod() {} // Method name will be converted to camelCase
 ```
+
+**Parameters:**
+- `fileName` (required) - name of the shell script file
+- `parameters` (default `[]`) - list of typed parameters
+- `allowRawParameters` (default `false`) - enables raw parameter string input
 
 #### ShellParameter
 
@@ -170,6 +189,98 @@ ShellParameter(
 **Parameter types:**
 - `ParameterType.flag` - flag without value (e.g., `-v` for verbose)
 - `ParameterType.value` - parameter with value (e.g., `-f filename`)
+
+## Parameter Usage Patterns
+
+### 1. Typed Parameters Only
+
+```dart
+@ShellScript(
+  fileName: 'process.sh',
+  parameters: [
+    ShellParameter(flag: 'i', name: 'input', required: true),
+    ShellParameter(flag: 'o', name: 'output', required: true),
+    ShellParameter(flag: 'v', name: 'verbose', type: ParameterType.flag),
+  ],
+)
+void processFiles() {}
+
+// Usage:
+final script = scripts.getProcessFiles(
+  input: '/path/to/input',
+  output: '/path/to/output',
+  verbose: true,
+);
+```
+
+### 2. Raw Parameters Only
+
+```dart
+@ShellScript(
+  fileName: 'flexible.sh',
+  allowRawParameters: true,
+)
+void flexibleScript() {}
+
+// Usage:
+final script = scripts.getFlexibleScript(
+  rawParameters: '-i /input -o /output --format json -v',
+);
+```
+
+### 3. Mixed Parameters
+
+```dart
+@ShellScript(
+  fileName: 'mixed.sh',
+  parameters: [
+    ShellParameter(flag: 'i', name: 'input', required: true),
+    ShellParameter(flag: 'o', name: 'output', required: true),
+  ],
+  allowRawParameters: true,
+)
+void mixedScript() {}
+
+// Usage:
+final script = scripts.getMixedScript(
+  input: '/path/to/input',
+  output: '/path/to/output',
+  rawParameters: '--format json --compress --verbose',
+);
+```
+
+## Raw Parameter String Features
+
+### Automatic Parsing
+
+The generator automatically parses raw parameter strings, handling:
+
+- **Quoted arguments**: `"file with spaces.txt"` or `'single quotes'`
+- **Escaped characters**: `\"` and `\'` within strings
+- **Multiple spaces**: Properly handled as separators
+- **Mixed quotes**: Support for both single and double quotes
+
+### Examples of Raw Parameter Strings
+
+```dart
+// Simple flags and values
+rawParameters: '-v -f input.txt -o output.txt'
+
+// Arguments with spaces (quoted)
+rawParameters: '-f "file with spaces.txt" -d "output directory"'
+
+// Mixed quotes and escaping
+rawParameters: '-m "It\'s working" -n \'Say "Hello"\'  -v'
+
+// Complex combinations
+rawParameters: '--input-file=/path/to/file --output-dir="./build dir" --verbose'
+```
+
+### Safety Features
+
+- **Argument escaping**: All arguments are automatically escaped for shell safety
+- **Quote handling**: Proper handling of nested quotes and escape sequences
+- **Validation**: Automatic validation of parameter syntax
 
 ## Shell Script Requirements
 
@@ -277,71 +388,80 @@ if ! [[ "$COUNT" =~ ^[0-9]+$ ]]; then
 fi
 ```
 
-### Generator Features
+### Scripts with Raw Parameter Support
 
-1. **Automatic parameter insertion**: The generator automatically adds a `set --` line with parameters at the beginning of the script after the shebang
-
-2. **Argument escaping**: All arguments are automatically escaped for safe use in the shell
-
-3. **Structure preservation**: The original script structure is preserved, only the parameter line is added
-
-### Example of Correct Scripts
-
-#### Simple script with one parameter
+When using `allowRawParameters: true`, your scripts can handle both typed and raw parameters:
 
 ```bash
 #!/bin/bash
-# scripts/hello.sh
+# scripts/flexible_script.sh
 
-while getopts "n:" opt; do
+# Initialize variables
+VERBOSE=false
+INPUT_FILE=""
+OUTPUT_DIR=""
+FORMAT="txt"
+
+# Handle all parameters including raw ones
+while getopts "i:o:f:v-:" opt; do
   case $opt in
-    n) NAME="$OPTARG" ;;
+    i) INPUT_FILE="$OPTARG" ;;
+    o) OUTPUT_DIR="$OPTARG" ;;
+    f) FORMAT="$OPTARG" ;;
+    v) VERBOSE=true ;;
+    -) 
+      # Handle long options passed via raw parameters
+      case "$OPTARG" in
+        format=*) FORMAT="${OPTARG#*=}" ;;
+        verbose) VERBOSE=true ;;
+        input-file=*) INPUT_FILE="${OPTARG#*=}" ;;
+        output-dir=*) OUTPUT_DIR="${OPTARG#*=}" ;;
+        *) echo "Unknown long option: --$OPTARG" >&2; exit 1 ;;
+      esac
+      ;;
     \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
   esac
 done
 
-echo "Hello, ${NAME:-World}!"
+# Your script logic here
 ```
 
-#### Complex script with multiple parameters
+## Best Practices
 
-```bash
-#!/bin/bash
-# scripts/process_files.sh
+### When to Use Raw Parameters
 
-# Default values
-VERBOSE=false
-RECURSIVE=false
-OUTPUT_FORMAT="txt"
-INPUT_DIR=""
-OUTPUT_DIR=""
+- **Complex command-line tools**: When you need to pass many options that change frequently
+- **Long option support**: For scripts that use `--long-option` style parameters
+- **Dynamic parameter sets**: When the set of parameters is determined at runtime
+- **Third-party tool integration**: When wrapping existing command-line tools
 
-# Parameter handling
-while getopts "i:o:f:vr" opt; do
-  case $opt in
-    i) INPUT_DIR="$OPTARG" ;;
-    o) OUTPUT_DIR="$OPTARG" ;;
-    f) OUTPUT_FORMAT="$OPTARG" ;;
-    v) VERBOSE=true ;;
-    r) RECURSIVE=true ;;
-    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
-  esac
-done
+### When to Use Typed Parameters
 
-# Check required parameters
-if [ -z "$INPUT_DIR" ] || [ -z "$OUTPUT_DIR" ]; then
-    echo "Error: Both input (-i) and output (-o) directories are required" >&2
-    exit 1
-fi
+- **Fixed API**: When your script has a stable set of parameters
+- **Type safety**: When you want compile-time checking of parameter names
+- **Documentation**: When you want clear parameter documentation in your Dart code
+- **Simple scripts**: For scripts with a small, well-defined set of parameters
 
-# Main logic
-if [ "$VERBOSE" = true ]; then
-    echo "Processing files from $INPUT_DIR to $OUTPUT_DIR"
-    echo "Format: $OUTPUT_FORMAT"
-    echo "Recursive: $RECURSIVE"
-fi
+### Combining Both Approaches
 
-# Your file processing logic here
+```dart
+@ShellScript(
+  fileName: 'hybrid.sh',
+  parameters: [
+    // Core required parameters as typed
+    ShellParameter(flag: 'i', name: 'input', required: true),
+    ShellParameter(flag: 'o', name: 'output', required: true),
+  ],
+  allowRawParameters: true,  // Additional options as raw
+)
+void hybridScript() {}
+
+// Usage:
+final script = scripts.getHybridScript(
+  input: '/required/input',
+  output: '/required/output',
+  rawParameters: '--format json --compress --threads 4 --verbose',
+);
 ```
 
 ## Troubleshooting
@@ -353,3 +473,22 @@ fi
 2. **Incorrect generation**: Check that all methods with `@ShellScript` have corresponding `.sh` files
 
 3. **Parameter errors**: Make sure the flags in `ShellParameter` match the flags in `getopts`
+
+4. **Raw parameter parsing issues**: 
+   - Ensure quotes are properly balanced in raw parameter strings
+   - Use escaping for special characters: `\"` and `\'`
+   - Check that parameter syntax matches your script's `getopts` pattern
+
+5. **Stale generated code**: If you renamed script files but didn't update annotations:
+   - Update the `fileName` in `@ShellScript` annotations
+   - Run `dart run build_runner clean` then `dart run build_runner build`
+   - Check build output for warnings about missing files
+
+### Raw Parameter Debugging
+
+If raw parameters aren't working as expected:
+
+1. **Check quote balance**: Ensure all quotes are properly opened and closed
+2. **Verify escaping**: Make sure special characters are properly escaped
+3. **Test parameter parsing**: Use simple parameters first, then add complexity
+4. **Check script compatibility**: Ensure your script handles the generated parameters correctly

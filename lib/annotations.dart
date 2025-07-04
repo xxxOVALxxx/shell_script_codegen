@@ -57,13 +57,18 @@ class ShellScript {
   /// List of supported parameters
   final List<ShellParameter> parameters;
 
+  /// Whether to allow raw parameter string input
+  final bool allowRawParameters;
+
   /// Creates a [ShellScript] annotation.
   ///
   /// [fileName] is the name of the shell script file to be generated.
   /// [parameters] is an optional list of parameters to be passed to the script.
+  /// [allowRawParameters] enables raw parameter string input alongside typed parameters.
   const ShellScript({
     required this.fileName,
     this.parameters = const [],
+    this.allowRawParameters = false,
   });
 }
 

@@ -14,18 +14,7 @@ class SystemShell {
   /// Get system information
   @ShellScript(
     fileName: 'system_info.sh',
-    parameters: [
-      ShellParameter(
-        flag: 'v',
-        name: 'verbose',
-        type: ParameterType.flag,
-      ),
-      ShellParameter(
-        flag: 'f',
-        name: 'format',
-        defaultValue: 'plain',
-      ),
-    ],
+    allowRawParameters: true,
   )
   void systemInfo() {}
 
@@ -192,7 +181,7 @@ Future<void> runDemo() async {
   // Test system info with parameters
   print('📊 System Info (verbose):');
   final systemInfoScript =
-      systemScripts.getSystemInfo(verbose: true, format: 'json');
+      systemScripts.getSystemInfo(rawParameters: '-v -f json');
   print('Generated script:');
   _printScript(systemInfoScript);
 
@@ -259,7 +248,8 @@ Future<void> runSystemScripts(List<String> args) async {
       );
       final format = formatArg.split('=')[1];
 
-      final script = scripts.getSystemInfo(verbose: verbose, format: format);
+      final script = scripts.getSystemInfo(
+          rawParameters: '${verbose ? '-v ' : ''}-f $format');
       print('🔍 Generated System Info Script:');
       _printScript(script);
       await _executeScript(script, 'system_info');
@@ -376,7 +366,9 @@ Future<void> runTests() async {
   print('Test 1: Parameter Generation');
   try {
     final scripts = SystemShellScripts.instance;
-    final script = scripts.getSystemInfo(verbose: true, format: 'json');
+    final script = scripts.getSystemInfo(
+      rawParameters: '-v -f json',
+    );
 
     if (script.contains('set -- ') &&
         script.contains("'-v'") &&

@@ -155,13 +155,15 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
 
     // Get parameters from the @ShellScript annotation
     final parameters = _getParametersFromMethod(method);
+    final allowRawParameters = _getAllowRawParametersFromMethod(method);
 
-    if (enableParameters && parameters.isNotEmpty) {
+    if (enableParameters && (parameters.isNotEmpty || allowRawParameters)) {
       // Generate method with parameters
       buffer.writeln(ShellScriptParameterizer.generateDartParameterMethod(
         finalMethodName,
         constantName,
         parameters,
+        allowRawParameters,
       ));
     } else {
       // Generate simple getter
@@ -199,6 +201,18 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
     }
 
     return [];
+  }
+
+  bool _getAllowRawParametersFromMethod(MethodElement method) {
+    final annotation =
+        TypeChecker.fromRuntime(ShellScript).firstAnnotationOf(method);
+
+    if (annotation != null) {
+      final reader = ConstantReader(annotation);
+      return reader.read('allowRawParameters').boolValue;
+    }
+
+    return false;
   }
 
   /// Convert a string to camelCase
