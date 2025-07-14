@@ -8,7 +8,7 @@ import 'package:meta/meta_meta.dart';
 /// Example usage:
 /// ```dart
 /// @ShellScripts(
-///   scriptsPath: 'scripts',
+///   scriptsPath: 'assets/scripts', // Path relative to project root
 ///   enableParameters: true,
 ///   methodPrefix: 'run',
 /// )
@@ -18,12 +18,13 @@ import 'package:meta/meta_meta.dart';
 /// The generated class will be named based on the annotated class name with "Scripts" suffix.
 /// For example, if applied to `MyShellScripts`, the generated class will be `MyShellScriptsScripts`.
 ///
-/// - [scriptsPath]: Path to the folder containing `.sh` files. Can be relative or absolute.
+/// - [scriptsPath]: Path to the folder containing `.sh` files, relative to the project root.
 /// - [enableParameters]: Whether to enable parameter support via `getopts` in the generated methods. Defaults to `true`.
 /// - [methodPrefix]: Prefix for the generated methods that access scripts. Defaults to `'get'`.
 @Target({TargetKind.classType})
 class ShellScripts {
-  /// Path to the folder with .sh files
+  /// Path to the folder with .sh files, relative to the project root.
+  /// This path is treated as an asset path (e.g., 'assets/scripts').
   final String scriptsPath;
 
   /// Whether to enable parameter support via getopts
@@ -34,7 +35,8 @@ class ShellScripts {
 
   /// Creates a [ShellScripts] annotation.
   ///
-  /// [scriptsPath] specifies the path to the shell scripts directory.
+  /// [scriptsPath] specifies the path to the shell scripts directory, which is
+  /// resolved as a package asset path.
   /// [enableParameters] determines whether method parameters are enabled. Defaults to `true`.
   /// [methodPrefix] sets the prefix for generated method names. Defaults to `'get'`.
   const ShellScripts({

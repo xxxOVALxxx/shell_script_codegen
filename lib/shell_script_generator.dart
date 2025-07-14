@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:build/build.dart';
 import 'package:source_gen/source_gen.dart';
@@ -7,6 +6,13 @@ import 'package:path/path.dart' as path;
 
 import 'annotations.dart';
 import 'shell_script_parameterizer.dart';
+
+/// A helper class to hold a method and its corresponding script content.
+class _MethodWithContent {
+  final MethodElement method;
+  final String content;
+  _MethodWithContent(this.method, this.content);
+}
 
 /// Generator for creating classes with shell scripts
 class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
@@ -28,9 +34,7 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
     final enableParameters = annotation.read('enableParameters').boolValue;
     final methodPrefix = annotation.read('methodPrefix').stringValue;
 
-    // Get the list of methods with the @ShellScript annotation
     final annotatedMethods = _getAnnotatedMethods(element);
-
     if (annotatedMethods.isEmpty) {
       throw InvalidGenerationSourceError(
         'No methods with @ShellScript annotation found in class ${element.name}',
@@ -38,26 +42,31 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
       );
     }
 
-    // Check for the existence of script files
-    final validMethods = <MethodElement>[];
+    final methodsWithContent = <_MethodWithContent>[];
+
+    // Process all annotated methods, read their associated script assets
     for (final method in annotatedMethods) {
       final scriptAnnotation = _getShellScriptAnnotation(method);
-      if (scriptAnnotation != null) {
-        final fileName = scriptAnnotation.read('fileName').stringValue;
-        final fullPath = path.join(scriptsPath, fileName);
+      if (scriptAnnotation == null) continue;
 
-        if (await File(fullPath).exists()) {
-          validMethods.add(method);
-        } else {
-          log.warning(
-              'Script file not found: $fullPath for method ${method.name}');
-        }
+      final fileName = scriptAnnotation.read('fileName').stringValue;
+      final assetId = AssetId(
+        buildStep.inputId.package,
+        path.join(scriptsPath, fileName),
+      );
+
+      if (await buildStep.canRead(assetId)) {
+        final content = await buildStep.readAsString(assetId);
+        methodsWithContent.add(_MethodWithContent(method, content));
+      } else {
+        log.warning(
+            'Script asset not found: ${assetId.path} for method ${method.name}');
       }
     }
 
-    if (validMethods.isEmpty) {
+    if (methodsWithContent.isEmpty) {
       throw InvalidGenerationSourceError(
-        'No valid script files found for annotated methods in class ${element.name}',
+        'No valid script assets found for annotated methods in class ${element.name}',
         element: element,
       );
     }
@@ -66,20 +75,20 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
     _generateClassHeader(buffer, className);
 
     // Generate constants for all valid methods
-    for (final method in validMethods) {
-      final scriptAnnotation = _getShellScriptAnnotation(method)!;
-      final fileName = scriptAnnotation.read('fileName').stringValue;
-      final fullPath = path.join(scriptsPath, fileName);
-
-      await _generateScriptConstant(
-          buffer, fullPath, method.name, methodPrefix);
+    for (final item in methodsWithContent) {
+      _generateScriptConstant(
+        buffer,
+        item.content,
+        item.method.name,
+        methodPrefix,
+      );
     }
 
     // Generate accessor methods
-    for (final method in validMethods) {
-      await _generateAccessMethod(
+    for (final item in methodsWithContent) {
+      _generateAccessMethod(
         buffer,
-        method,
+        item.method,
         methodPrefix,
         enableParameters,
       );
@@ -96,15 +105,9 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
 
   /// Gets all methods with the @ShellScript annotation
   List<MethodElement> _getAnnotatedMethods(ClassElement classElement) {
-    final methods = <MethodElement>[];
-
-    for (final method in classElement.methods) {
-      if (TypeChecker.fromRuntime(ShellScript).hasAnnotationOf(method)) {
-        methods.add(method);
-      }
-    }
-
-    return methods;
+    return classElement.methods
+        .where((m) => TypeChecker.fromRuntime(ShellScript).hasAnnotationOf(m))
+        .toList();
   }
 
   /// Gets the @ShellScript annotation for a method
@@ -125,13 +128,12 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
   }
 
   /// Generates a constant for the shell script content
-  Future<void> _generateScriptConstant(
+  void _generateScriptConstant(
     StringBuffer buffer,
-    String filePath,
+    String content,
     String methodName,
     String methodPrefix,
-  ) async {
-    final content = await File(filePath).readAsString();
+  ) {
     final camelCaseMethodName = _toCamelCase(methodName);
     final constantName =
         '_${methodPrefix}${_capitalize(camelCaseMethodName)}Base';
@@ -142,23 +144,21 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
     buffer.writeln();
   }
 
-  Future<void> _generateAccessMethod(
+  void _generateAccessMethod(
     StringBuffer buffer,
     MethodElement method,
     String methodPrefix,
     bool enableParameters,
-  ) async {
+  ) {
     final camelCaseMethodName = _toCamelCase(method.name);
     final finalMethodName = '$methodPrefix${_capitalize(camelCaseMethodName)}';
     final constantName =
         '_${methodPrefix}${_capitalize(camelCaseMethodName)}Base';
 
-    // Get parameters from the @ShellScript annotation
     final parameters = _getParametersFromMethod(method);
     final allowRawParameters = _getAllowRawParametersFromMethod(method);
 
     if (enableParameters && (parameters.isNotEmpty || allowRawParameters)) {
-      // Generate method with parameters
       buffer.writeln(ShellScriptParameterizer.generateDartParameterMethod(
         finalMethodName,
         constantName,
@@ -166,7 +166,6 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
         allowRawParameters,
       ));
     } else {
-      // Generate simple getter
       buffer.writeln('  /// Returns the ${camelCaseMethodName} shell script');
       buffer.writeln('  String get $finalMethodName => $constantName;');
     }
@@ -175,74 +174,50 @@ class ShellScriptGenerator extends GeneratorForAnnotation<ShellScripts> {
   }
 
   List<ShellParameter> _getParametersFromMethod(MethodElement method) {
-    final annotation =
-        TypeChecker.fromRuntime(ShellScript).firstAnnotationOf(method);
+    final annotation = _getShellScriptAnnotation(method);
+    if (annotation == null) return [];
 
-    if (annotation != null) {
-      final reader = ConstantReader(annotation);
-      final parametersReader = reader.read('parameters');
-
-      return parametersReader.listValue.map((paramObj) {
-        final paramReader = ConstantReader(paramObj);
-        return ShellParameter(
-          flag: paramReader.read('flag').stringValue,
-          name: paramReader.read('name').stringValue,
-          required: paramReader.read('required').boolValue,
-          defaultValue: paramReader.read('defaultValue').isNull
-              ? null
-              : paramReader.read('defaultValue').stringValue,
-          type: ParameterType.values[paramReader
-              .read('type')
-              .objectValue
-              .getField('index')!
-              .toIntValue()!],
-        );
-      }).toList();
-    }
-
-    return [];
+    final parametersReader = annotation.read('parameters');
+    return parametersReader.listValue.map((paramObj) {
+      final paramReader = ConstantReader(paramObj);
+      return ShellParameter(
+        flag: paramReader.read('flag').stringValue,
+        name: paramReader.read('name').stringValue,
+        required: paramReader.read('required').boolValue,
+        defaultValue: paramReader.read('defaultValue').isNull
+            ? null
+            : paramReader.read('defaultValue').stringValue,
+        type: ParameterType.values[paramReader
+            .read('type')
+            .objectValue
+            .getField('index')!
+            .toIntValue()!],
+      );
+    }).toList();
   }
 
   bool _getAllowRawParametersFromMethod(MethodElement method) {
-    final annotation =
-        TypeChecker.fromRuntime(ShellScript).firstAnnotationOf(method);
+    final annotation = _getShellScriptAnnotation(method);
+    if (annotation == null) return false;
 
-    if (annotation != null) {
-      final reader = ConstantReader(annotation);
-      return reader.read('allowRawParameters').boolValue;
-    }
-
-    return false;
+    return annotation.read('allowRawParameters').boolValue;
   }
 
-  /// Convert a string to camelCase
   String _toCamelCase(String text) {
     if (text.isEmpty) return text;
-
-    // Split by underscores and dashes
     final parts = text.split(RegExp(r'[_-]'));
-
     if (parts.length == 1) {
-      // If there are no delimiters, just lowercase the first letter
       return text[0].toLowerCase() + text.substring(1);
     }
-
-    final buffer = StringBuffer();
-
-    // The first part remains lowercase
-    buffer.write(parts[0].toLowerCase());
-
-    // The rest start with uppercase
+    final buffer = StringBuffer(parts.first.toLowerCase());
     for (int i = 1; i < parts.length; i++) {
       if (parts[i].isNotEmpty) {
         buffer.write(_capitalize(parts[i].toLowerCase()));
       }
     }
-
     return buffer.toString();
   }
 
-  /// Capitalizes the first letter
   String _capitalize(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
