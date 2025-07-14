@@ -1,7 +1,7 @@
 part 'main.g.dart';
 
 @ShellScripts(
-  scriptsPath: 'scripts', // Path to the scripts folder
+  scriptsPath: 'assets/scripts', // Path to the scripts folder
   enableParameters: true, // Enable parameter support
   methodPrefix: 'get', // Prefix for generated methods
 )

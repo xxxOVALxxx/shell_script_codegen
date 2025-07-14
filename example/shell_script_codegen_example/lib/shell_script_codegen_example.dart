@@ -1,4 +1,3 @@
-// example/main.dart
 import 'dart:io';
 import 'package:shell_script_codegen/shell_script_codegen.dart';
 
@@ -6,7 +5,7 @@ part 'shell_script_codegen_example.g.dart';
 
 /// Test class to demonstrate main functionality
 @ShellScripts(
-  scriptsPath: 'scripts/scripts',
+  scriptsPath: 'assets/scripts/scripts',
   enableParameters: true,
   methodPrefix: 'get',
 )
@@ -62,7 +61,7 @@ class SystemShell {
 
 /// Simple class without parameters
 @ShellScripts(
-  scriptsPath: 'scripts/simple_scripts',
+  scriptsPath: 'assets/scripts/simple_scripts',
   enableParameters: false,
   methodPrefix: 'script',
 )
@@ -76,7 +75,7 @@ class Simple {
 
 /// Class for developer utilities
 @ShellScripts(
-  scriptsPath: 'scripts/dev_scripts',
+  scriptsPath: 'assets/scripts/dev_scripts',
   methodPrefix: 'run',
 )
 class Developer {
@@ -161,11 +160,11 @@ Available commands:
 ❓ help     - Show this help
 
 Examples:
-  dart run lib/main.dart demo
-  dart run lib/main.dart system info --verbose
-  dart run lib/main.dart simple hello
-  dart run lib/main.dart dev git-status --branch
-  dart run lib/main.dart test
+  dart run lib/shell_script_codegen_example.dart demo
+  dart run lib/shell_script_codegen_example.dart system info --verbose
+  dart run lib/shell_script_codegen_example.dart simple hello
+  dart run lib/shell_script_codegen_example.dart dev git-status --branch
+  dart run lib/shell_script_codegen_example.dart test
 ''');
 }
 

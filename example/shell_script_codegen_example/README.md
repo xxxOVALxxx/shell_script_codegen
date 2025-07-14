@@ -15,22 +15,22 @@ This example demonstrates how to use the `shell_script_codegen` package to gener
 3. **Run the example:**
    ```bash
    # Show help
-   dart run lib/main.dart help
+   dart run lib/shell_script_codegen_example.dart help
 
    # Run full demo
-   dart run lib/main.dart demo
+   dart run lib/shell_script_codegen_example.dart demo
 
    # Test system scripts
-   dart run lib/main.dart system info --verbose --format=json
+   dart run lib/shell_script_codegen_example.dart system info --verbose --format=json
 
    # Test simple scripts
-   dart run lib/main.dart simple hello
+   dart run lib/shell_script_codegen_example.dart simple hello
 
    # Test developer scripts
-   dart run lib/main.dart dev git-status --branch
+   dart run lib/shell_script_codegen_example.dart dev git-status --branch
 
    # Run tests
-   dart run lib/main.dart test
+   dart run lib/shell_script_codegen_example.dart test
    ```
 
 ## Examples Included
@@ -63,14 +63,14 @@ This example demonstrates how to use the `shell_script_codegen` package to gener
 
 ```bash
 # System scripts with parameters
-dart run lib/main.dart system info --verbose --format=json
-dart run lib/main.dart system cleanup --directory=/tmp --recursive
+dart run lib/shell_script_codegen_example.dart system info --verbose --format=json
+dart run lib/shell_script_codegen_example.dart system cleanup --directory=/tmp --recursive
 
 # Simple scripts
-dart run lib/main.dart simple hello
-dart run lib/main.dart simple date
+dart run lib/shell_script_codegen_example.dart simple hello
+dart run lib/shell_script_codegen_example.dart simple date
 
 # Developer scripts
-dart run lib/main.dart dev git-status --branch
-dart run lib/main.dart dev build --environment=production --clean
+dart run lib/shell_script_codegen_example.dart dev git-status --branch
+dart run lib/shell_script_codegen_example.dart dev build --environment=production --clean
 ```
