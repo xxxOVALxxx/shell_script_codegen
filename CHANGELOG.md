@@ -1,3 +1,8 @@
+## 1.2.0
+
+- Switched from dart:io to assets system
+
+
 ## 1.1.0
 
 - Added support for raw parameters
