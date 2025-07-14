@@ -1,69 +1,84 @@
 # Shell Script Codegen
 
-A package for generating Dart code that allows you to embed and parameterize shell scripts in your Dart applications. Automatically creates classes with methods for accessing shell scripts with parameter support via `getopts`.
+A powerful Dart code generation package that seamlessly integrates shell scripts into your application. It automatically creates type-safe Dart classes for embedding and parameterizing shell scripts, complete with support for `getopts`.
 
-## Features
+## Key Features
 
-- 🔧 Automatic generation of Dart classes from shell scripts
-- 📝 Embedding `.sh` file contents as string constants
-- ⚙️ Parameterization support for scripts via `getopts`
-- 🛡️ Safe shell argument escaping
-- 🎯 Type-safe script access
+- ⚙️ **Automatic Dart Class Generation**: Transforms your `.sh` files into Dart classes.
+- 🔡 **Embedded Script Content**: Shell scripts are embedded directly as string constants in your Dart code.
+- 🎛️ **Powerful Parameterization**: Supports both type-safe and raw string parameters using `getopts`.
+- 🛡️ **Enhanced Safety**: Provides automatic and secure escaping for all shell arguments.
+- 🎯 **Type-Safe Access**: Access your scripts through generated methods for improved reliability.
+- 🔄 **Flexible Usage Patterns**: Mix and match typed and raw parameters to suit your needs.
 
 ## Installation
 
-Add dependencies to your `pubspec.yaml`:
+To get started, add the necessary dependencies to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  shell_script_codegen: ^1.0.0
+  # This package is not needed at runtime, so it's not a dependency.
+  # Add it if you need access to annotations directly.
+  # shell_script_codegen: ^1.2.0
 
 dev_dependencies:
   build_runner: ^2.5.4
+  shell_script_codegen: ^1.2.0 # Add the generator to dev_dependencies
 ```
+
+Then, run `dart pub get` to install the packages.
 
 ## Quick Start
 
-### 1. Create shell scripts
+Follow these steps to quickly integrate `shell_script_codegen` into your project.
 
-Create a `scripts/` directory at the project root and place your `.sh` files there:
+### 1. Create Your Shell Scripts
 
+First, create a directory for your scripts (e.g., `assets/scripts`) and add your `.sh` files.
+
+**`assets/scripts/backup.sh`**
 ```bash
-# scripts/backup.sh
 #!/bin/bash
 
-# Get parameters via getopts
+# Default values
+VERBOSE=false
+
+# Parse parameters using getopts
 while getopts "s:d:v" opt; do
   case $opt in
     s) SOURCE="$OPTARG" ;;
     d) DEST="$OPTARG" ;;
     v) VERBOSE=true ;;
-    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+    \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
   esac
 done
 
 # Main script logic
 if [ "$VERBOSE" = true ]; then
-    echo "Creating backup from $SOURCE to $DEST"
+    echo "Backing up from '$SOURCE' to '$DEST'..."
 fi
 
-cp -r "$SOURCE" "$DEST"
+# A real script would do more here, like:
+# cp -r "$SOURCE" "$DEST"
+echo "Backup command executed."
 ```
 
-### 2. Create an annotated class
+### 2. Annotate a Dart Class
 
+Create a Dart file and define a class with annotations to configure the code generation.
+
+**`lib/my_scripts.dart`**
 ```dart
-// lib/my_scripts.dart
-import 'package:shell_script_codegen/shell_script_codegen.dart';
+import 'package:shell_script_codegen/annotations.dart';
 
 part 'my_scripts.g.dart';
 
 @ShellScripts(
-  scriptsPath: 'scripts',
+  scriptsPath: 'assets/scripts',
   enableParameters: true,
-  methodPrefix: 'get',
+  methodPrefix: 'run',
 )
-class MyShell {
+abstract class MyScripts {
   @ShellScript(
     fileName: 'backup.sh',
     parameters: [
@@ -83,116 +98,102 @@ class MyShell {
         type: ParameterType.flag,
       ),
     ],
-    allowRawParameters: true,  // Enable raw parameter support
+    allowRawParameters: true,
   )
-  void backupScript() {}
+  void backupScript();
 }
 ```
 
-### 3. Run code generation
+### 3. Run Code Generation
+
+Execute the following command in your terminal to generate the Dart code:
 
 ```bash
 dart run build_runner build
 ```
 
-### 4. Use the generated class
+### 4. Use the Generated Code
+
+You can now import the generated file and use the class to access your scripts with type-safe parameters or raw strings.
 
 ```dart
 import 'my_scripts.dart';
 
 void main() {
-  final scripts = MyShellScripts.instance;
-  
-  // Get script with typed parameters
-  final backupScript1 = scripts.getBackupScript(
+  // Access the generated instance
+  final scripts = MyScriptsScripts.instance;
+
+  // --- Usage Examples ---
+
+  // 1. Typed parameters for safety and clarity
+  final backupScript1 = scripts.runBackupScript(
     source: '/home/user/data',
     destination: '/backup/data',
     verbose: true,
   );
-  
-  // Get script with raw parameters
-  final backupScript2 = scripts.getBackupScript(
+  print('--- Typed ---');
+  print(backupScript1);
+
+  // 2. Raw parameters for flexibility
+  final backupScript2 = scripts.runBackupScript(
     rawParameters: '-s /home/user/docs -d /backup/docs -v',
   );
-  
-  // Mix typed and raw parameters
-  final backupScript3 = scripts.getBackupScript(
-    source: '/home/user/data',
-    destination: '/backup/data',
-    rawParameters: '-v --extra-option value',
+  print('\n--- Raw ---');
+  print(backupScript2);
+
+  // 3. Mix typed and raw parameters
+  final backupScript3 = scripts.runBackupScript(
+    source: '/home/user/media',
+    destination: '/backup/media',
+    rawParameters: '--verbose --force', // Your script would need to handle --force
   );
-  
-  print(backupScript1);
-  // Output: script with automatically added set -- line with parameters
+  print('\n--- Mixed ---');
+  print(backupScript3);
 }
 ```
 
-## Detailed Description
+## API Reference
 
-### Annotations
+### @ShellScripts
 
-#### @ShellScripts
+This class-level annotation configures the code generator.
 
-The main annotation for the class, specifying generation parameters:
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `scriptsPath` | `String` | *Required* | Path to the directory containing `.sh` files, relative to the project root. |
+| `enableParameters` | `bool` | `true` | If true, generates methods that accept parameters. |
+| `methodPrefix` | `String` | `'get'` | A prefix for all generated script-accessing methods. |
 
-```dart
-@ShellScripts(
-  scriptsPath: 'scripts',        // Path to the scripts folder
-  enableParameters: true,        // Enable parameter support
-  methodPrefix: 'get',           // Prefix for script access methods
-)
-```
+### @ShellScript
 
-**Parameters:**
-- `scriptsPath` (required) - path to the directory with `.sh` files
-- `enableParameters` (default `true`) - enables generation of methods with parameters
-- `methodPrefix` (default `'get'`) - prefix for script access methods
+This method-level annotation links an abstract method to a specific shell script file.
 
-#### @ShellScript
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `fileName` | `String` | *Required* | The name of the `.sh` file in the `scriptsPath` directory. |
+| `parameters` | `List<ShellParameter>` | `[]` | A list of typed parameters that the script accepts. |
+| `allowRawParameters` | `bool` | `false` | If true, allows passing a raw string of additional parameters to the script. |
 
-Annotation for methods, linking to a specific shell script:
+### ShellParameter
 
-```dart
-@ShellScript(
-  fileName: 'my_script.sh',
-  parameters: [
-    ShellParameter(
-      flag: 'f',
-      name: 'file',
-      required: true,
-    ),
-  ],
-  allowRawParameters: true,  // Enable raw parameter string support
-)
-void myMethod() {} // Method name will be converted to camelCase
-```
+Defines a single parameter for a shell script.
 
-**Parameters:**
-- `fileName` (required) - name of the shell script file
-- `parameters` (default `[]`) - list of typed parameters
-- `allowRawParameters` (default `false`) - enables raw parameter string input
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `flag` | `String` | *Required* | The parameter flag (e.g., `'f'` for `-f`). |
+| `name` | `String` | *Required* | The name of the parameter in the generated Dart method. |
+| `required` | `bool` | `false` | Whether the parameter is mandatory. |
+| `defaultValue` | `String?` | `null` | A default value if the parameter is not provided. |
+| `type` | `ParameterType` | `ParameterType.value` | The type of parameter. Can be `.value` or `.flag`. |
 
-#### ShellParameter
+- **`ParameterType.value`**: A parameter that takes a value (e.g., `-f filename`).
+- **`ParameterType.flag`**: A boolean flag that doesn't take a value (e.g., `-v`).
 
-Description of a parameter for a shell script:
+## Usage Patterns
 
-```dart
-ShellParameter(
-  flag: 'f',                    // Parameter flag (without -)
-  name: 'fileName',             // Name in Dart method
-  required: false,              // Whether the parameter is required
-  defaultValue: 'default.txt',  // Default value
-  type: ParameterType.value,    // Parameter type
-)
-```
+### Typed Parameters Only
 
-**Parameter types:**
-- `ParameterType.flag` - flag without value (e.g., `-v` for verbose)
-- `ParameterType.value` - parameter with value (e.g., `-f filename`)
-
-## Parameter Usage Patterns
-
-### 1. Typed Parameters Only
+Best for scripts with a fixed API for maximum type safety and clarity.
 
 ```dart
 @ShellScript(
@@ -203,9 +204,9 @@ ShellParameter(
     ShellParameter(flag: 'v', name: 'verbose', type: ParameterType.flag),
   ],
 )
-void processFiles() {}
+void processFiles();
 
-// Usage:
+// Usage
 final script = scripts.getProcessFiles(
   input: '/path/to/input',
   output: '/path/to/output',
@@ -213,282 +214,88 @@ final script = scripts.getProcessFiles(
 );
 ```
 
-### 2. Raw Parameters Only
+### Raw Parameters Only
+
+Ideal for wrapping complex command-line tools or when parameters are dynamic.
 
 ```dart
 @ShellScript(
   fileName: 'flexible.sh',
   allowRawParameters: true,
 )
-void flexibleScript() {}
+void flexibleScript();
 
-// Usage:
+// Usage
 final script = scripts.getFlexibleScript(
   rawParameters: '-i /input -o /output --format json -v',
 );
 ```
 
-### 3. Mixed Parameters
+### Mixed Typed and Raw Parameters
+
+Combine required, typed parameters with optional, raw parameters for the ultimate flexibility.
 
 ```dart
 @ShellScript(
   fileName: 'mixed.sh',
   parameters: [
     ShellParameter(flag: 'i', name: 'input', required: true),
-    ShellParameter(flag: 'o', name: 'output', required: true),
   ],
   allowRawParameters: true,
 )
-void mixedScript() {}
+void mixedScript();
 
-// Usage:
+// Usage
 final script = scripts.getMixedScript(
   input: '/path/to/input',
-  output: '/path/to/output',
   rawParameters: '--format json --compress --verbose',
 );
 ```
 
-## Raw Parameter String Features
+## Shell Script Guidelines
 
-### Automatic Parsing
+To ensure compatibility with the code generator, your shell scripts should follow these guidelines.
 
-The generator automatically parses raw parameter strings, handling:
+### Requirements
 
-- **Quoted arguments**: `"file with spaces.txt"` or `'single quotes'`
-- **Escaped characters**: `\"` and `\'` within strings
-- **Multiple spaces**: Properly handled as separators
-- **Mixed quotes**: Support for both single and double quotes
+1.  **`.sh` Extension**: All script files must use the `.sh` extension.
+2.  **Use `getopts`**: Parameters must be parsed inside the script using the `getopts` command.
+3.  **Error Handling**: Scripts should handle unknown options gracefully.
 
-### Examples of Raw Parameter Strings
-
-```dart
-// Simple flags and values
-rawParameters: '-v -f input.txt -o output.txt'
-
-// Arguments with spaces (quoted)
-rawParameters: '-f "file with spaces.txt" -d "output directory"'
-
-// Mixed quotes and escaping
-rawParameters: '-m "It\'s working" -n \'Say "Hello"\'  -v'
-
-// Complex combinations
-rawParameters: '--input-file=/path/to/file --output-dir="./build dir" --verbose'
-```
-
-### Safety Features
-
-- **Argument escaping**: All arguments are automatically escaped for shell safety
-- **Quote handling**: Proper handling of nested quotes and escape sequences
-- **Validation**: Automatic validation of parameter syntax
-
-## Shell Script Requirements
-
-### Mandatory Requirements
-
-1. **File extension**: All scripts must have a `.sh` extension
-
-2. **Using getopts**: For parameterized scripts, you must use `getopts` for parameter handling:
+### Recommended Script Structure
 
 ```bash
 #!/bin/bash
 
-while getopts "f:v" opt; do
-  case $opt in
-    f) FILE="$OPTARG" ;;
-    v) VERBOSE=true ;;
-    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
-  esac
-done
-```
-
-3. **Proper error handling**: Scripts must properly handle unknown options:
-
-```bash
-\?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
-```
-
-### Script Structure Recommendations
-
-#### Basic structure
-
-```bash
-#!/bin/bash
-
-# Initialize default variables
+# 1. Initialize default values
 VERBOSE=false
-OUTPUT_DIR=""
-INPUT_FILE=""
+OUTPUT_DIR="."
 
-# Parameter handling
-while getopts "i:o:vh" opt; do
+# 2. Parse options with getopts
+while getopts "o:vh" opt; do
   case $opt in
-    i) INPUT_FILE="$OPTARG" ;;
     o) OUTPUT_DIR="$OPTARG" ;;
     v) VERBOSE=true ;;
     h) show_help; exit 0 ;;
-    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+    \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
   esac
 done
 
-# Check required parameters
-if [ -z "$INPUT_FILE" ]; then
-    echo "Error: Input file is required (-i)" >&2
-    exit 1
-fi
+# 3. Check for required arguments (if any)
+# Example: if [ -z "$INPUT_FILE" ]; then ...
 
-# Main script logic
+# 4. Main script logic
 if [ "$VERBOSE" = true ]; then
-    echo "Processing $INPUT_FILE..."
+    echo "Verbose mode is ON."
+    echo "Output directory: $OUTPUT_DIR"
 fi
 
-# Your code here
-```
-
-#### Handling flags and values
-
-```bash
-# For flags (no values)
-while getopts "vh" opt; do
-  case $opt in
-    v) VERBOSE=true ;;      # Enable verbose mode flag
-    h) show_help; exit 0 ;;  # Help flag
-  esac
-done
-
-# For parameters with values
-while getopts "f:d:n:" opt; do
-  case $opt in
-    f) FILE_PATH="$OPTARG" ;;     # File path
-    d) DIRECTORY="$OPTARG" ;;     # Directory
-    n) COUNT="$OPTARG" ;;         # Numeric value
-  esac
-done
-```
-
-#### Parameter validation
-
-```bash
-# Check if file exists
-if [ ! -f "$INPUT_FILE" ]; then
-    echo "Error: File $INPUT_FILE does not exist" >&2
-    exit 1
-fi
-
-# Check write permissions for directory
-if [ ! -w "$OUTPUT_DIR" ]; then
-    echo "Error: Cannot write to directory $OUTPUT_DIR" >&2
-    exit 1
-fi
-
-# Check numeric values
-if ! [[ "$COUNT" =~ ^[0-9]+$ ]]; then
-    echo "Error: COUNT must be a positive integer" >&2
-    exit 1
-fi
-```
-
-### Scripts with Raw Parameter Support
-
-When using `allowRawParameters: true`, your scripts can handle both typed and raw parameters:
-
-```bash
-#!/bin/bash
-# scripts/flexible_script.sh
-
-# Initialize variables
-VERBOSE=false
-INPUT_FILE=""
-OUTPUT_DIR=""
-FORMAT="txt"
-
-# Handle all parameters including raw ones
-while getopts "i:o:f:v-:" opt; do
-  case $opt in
-    i) INPUT_FILE="$OPTARG" ;;
-    o) OUTPUT_DIR="$OPTARG" ;;
-    f) FORMAT="$OPTARG" ;;
-    v) VERBOSE=true ;;
-    -) 
-      # Handle long options passed via raw parameters
-      case "$OPTARG" in
-        format=*) FORMAT="${OPTARG#*=}" ;;
-        verbose) VERBOSE=true ;;
-        input-file=*) INPUT_FILE="${OPTARG#*=}" ;;
-        output-dir=*) OUTPUT_DIR="${OPTARG#*=}" ;;
-        *) echo "Unknown long option: --$OPTARG" >&2; exit 1 ;;
-      esac
-      ;;
-    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
-  esac
-done
-
-# Your script logic here
-```
-
-## Best Practices
-
-### When to Use Raw Parameters
-
-- **Complex command-line tools**: When you need to pass many options that change frequently
-- **Long option support**: For scripts that use `--long-option` style parameters
-- **Dynamic parameter sets**: When the set of parameters is determined at runtime
-- **Third-party tool integration**: When wrapping existing command-line tools
-
-### When to Use Typed Parameters
-
-- **Fixed API**: When your script has a stable set of parameters
-- **Type safety**: When you want compile-time checking of parameter names
-- **Documentation**: When you want clear parameter documentation in your Dart code
-- **Simple scripts**: For scripts with a small, well-defined set of parameters
-
-### Combining Both Approaches
-
-```dart
-@ShellScript(
-  fileName: 'hybrid.sh',
-  parameters: [
-    // Core required parameters as typed
-    ShellParameter(flag: 'i', name: 'input', required: true),
-    ShellParameter(flag: 'o', name: 'output', required: true),
-  ],
-  allowRawParameters: true,  // Additional options as raw
-)
-void hybridScript() {}
-
-// Usage:
-final script = scripts.getHybridScript(
-  input: '/required/input',
-  output: '/required/output',
-  rawParameters: '--format json --compress --threads 4 --verbose',
-);
+# Your script's main functionality here
 ```
 
 ## Troubleshooting
 
-### Common Errors
-
-1. **Script not found**: Make sure the `scriptsPath` is set correctly relative to the project root
-
-2. **Incorrect generation**: Check that all methods with `@ShellScript` have corresponding `.sh` files
-
-3. **Parameter errors**: Make sure the flags in `ShellParameter` match the flags in `getopts`
-
-4. **Raw parameter parsing issues**: 
-   - Ensure quotes are properly balanced in raw parameter strings
-   - Use escaping for special characters: `\"` and `\'`
-   - Check that parameter syntax matches your script's `getopts` pattern
-
-5. **Stale generated code**: If you renamed script files but didn't update annotations:
-   - Update the `fileName` in `@ShellScript` annotations
-   - Run `dart run build_runner clean` then `dart run build_runner build`
-   - Check build output for warnings about missing files
-
-### Raw Parameter Debugging
-
-If raw parameters aren't working as expected:
-
-1. **Check quote balance**: Ensure all quotes are properly opened and closed
-2. **Verify escaping**: Make sure special characters are properly escaped
-3. **Test parameter parsing**: Use simple parameters first, then add complexity
-4. **Check script compatibility**: Ensure your script handles the generated parameters correctly
+- **Generated File Not Found**: Ensure you have included `part 'my_scripts.g.dart';` and run the build command.
+- **Script Not Found**: Verify that `scriptsPath` in `@ShellScripts` is a correct path relative to your assets folder.
+- **Parameter Errors**: Double-check that the `flag` in `ShellParameter` exactly matches the flag used in your script's `getopts` string.
+- **Stale Code**: If you make changes and they don't appear, try cleaning and rebuilding: `dart run build_runner clean && dart run build_runner build`.
